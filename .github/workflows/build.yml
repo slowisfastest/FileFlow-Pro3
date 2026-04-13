@@ -1,22 +1,95 @@
-name: Build Windows EXE
+name: Build Windows EXE with OCR Models
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
+    
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    - run: pip install pyinstaller pdfplumber pdf2docx Pillow PyMuPDF python-docx openpyxl python-pptx reportlab lxml paddleocr opencv-python numpy
-    - run: python download_ocr_models.py
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        # 先安装 torch，避免与 paddle 冲突
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+        # 安装 paddlepaddle CPU 版本（Windows 专用）
+        pip install paddlepaddle==2.6.1 -f https://www.paddlepaddle.org.cn/whl/windows/cpu-mkl-avx/stable.html
+        # 安装其他依赖
+        pip install -r requirements.txt
+        
+    - name: Verify OCR installations (Critical)
+      run: |
+        python -c "import paddle; print('Paddle version:', paddle.__version__)"
+        python -c "import paddleocr; print('PaddleOCR imported successfully')"
+        python -c "from paddleocr import PaddleOCR; print('PaddleOCR class imported')"
+        python -c "import easyocr; print('EasyOCR imported successfully')"
+        python -c "import cv2; print('OpenCV version:', cv2.__version__)"
+        python -c "import torch; print('PyTorch version:', torch.__version__)"
+        echo "All OCR dependencies verified successfully!"
+      # 如果验证失败，workflow 会在这里停止
+        
+    - name: Create hooks directory
+      run: |
+        if (-Not (Test-Path "hooks")) { New-Item -ItemType Directory -Path "hooks" }
+        Copy-Item "hook-paddleocr.py" "hooks/hook-paddleocr.py" -ErrorAction SilentlyContinue
+        Copy-Item "hook-easyocr.py" "hooks/hook-easyocr.py" -ErrorAction SilentlyContinue
+        
+    - name: Pre-download OCR Models
+      run: |
+        python download_ocr_models.py
+        if (-Not (Test-Path "ocr_models")) { New-Item -ItemType Directory -Path "ocr_models" }
       continue-on-error: true
-    - run: python create_spec.py
-    - run: pyinstaller --clean --noconfirm FileFlowPro.spec
-    - uses: actions/upload-artifact@v4
+        
+    - name: Create spec file
+      run: python create_spec.py
+        
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller --clean --noconfirm FileFlowPro.spec
+        
+    - name: Check build output
+      run: |
+        dir dist\
+        echo "Build completed"
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
       with:
-        name: FileFlowPro
+        name: FileFlowPro-Windows-with-OCR
         path: dist/FileFlowPro.exe
+        
+    - name: Create Release
+      if: github.event_name == 'workflow_dispatch'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/FileFlowPro.exe
+        tag_name: v${{ github.run_number }}-ocr
+        name: FileFlow Pro Windows Build v${{ github.run_number }} (含OCR模型)
+        body: |
+          FileFlow Pro Windows 可执行文件（含离线OCR模型）
+          
+          功能特性：
+          - PDF 转 Word/Excel/PPT/图片/文本
+          - Word/Excel/PPT 转 PDF
+          - 图片格式转换
+          - 文本转 PDF/Word
+          - **OCR 扫描件识别（离线可用）**
+          
+          OCR 模型：
+          - PaddleOCR-V4 (SOTA 模型)
+          - 支持中英文识别
+          - 无需联网即可使用
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
