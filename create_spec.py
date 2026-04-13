@@ -11,11 +11,90 @@ from pathlib import Path
 block_cipher = None
 
 # ═══════════════════════════════════════════════════════════
+# 内联 Hook 配置 - 确保 OCR 引擎被打包
+# ═══════════════════════════════════════════════════════════
+
+# 内联 paddleocr hook
+import PyInstaller.utils.hooks as hooks
+
+# 手动收集 paddleocr 的所有子模块和数据
+def collect_paddleocr():
+    datas = []
+    hiddenimports = []
+    
+    try:
+        import paddleocr
+        import paddleocr.ppocr
+        # 收集数据文件
+        datas.extend(hooks.collect_data_files('paddleocr'))
+        # 收集所有子模块
+        hiddenimports.extend(hooks.collect_submodules('paddleocr'))
+        # 额外添加关键子模块
+        hiddenimports += [
+            'paddleocr.ppocr',
+            'paddleocr.ppocr.utils',
+            'paddleocr.ppocr.utils.utility',
+            'paddleocr.ppocr.utils.logging',
+            'paddleocr.ppocr.data',
+            'paddleocr.ppocr.data.imaug',
+            'paddleocr.ppocr.data.imaug.operators',
+            'paddleocr.ppocr.modeling',
+            'paddleocr.ppocr.modeling.architectures',
+            'paddleocr.ppocr.modeling.backbones',
+            'paddleocr.ppocr.modeling.necks',
+            'paddleocr.ppocr.modeling.heads',
+            'paddleocr.ppocr.modeling.transforms',
+            'paddleocr.ppocr.losses',
+            'paddleocr.ppocr.metrics',
+            'paddleocr.ppocr.optimizer',
+            'paddleocr.ppocr.scheduler',
+            'paddleocr.tools',
+            'paddleocr.tools.infer',
+            'paddleocr.tools.infer.utility',
+            'paddleocr.tools.infer.predict_system',
+            'paddleocr.tools.infer.predict_rec',
+            'paddleocr.tools.infer.predict_det',
+            'paddleocr.tools.infer.predict_cls',
+        ]
+    except Exception as e:
+        print(f"Warning: Could not collect paddleocr: {e}")
+    
+    return datas, hiddenimports
+
+# 内联 easyocr hook
+def collect_easyocr():
+    datas = []
+    hiddenimports = []
+    
+    try:
+        import easyocr
+        # 收集数据文件
+        datas.extend(hooks.collect_data_files('easyocr'))
+        # 收集所有子模块
+        hiddenimports.extend(hooks.collect_submodules('easyocr'))
+        # 额外添加关键子模块
+        hiddenimports += [
+            'easyocr.model',
+            'easyocr.model.model',
+            'easyocr.model.modules',
+            'easyocr.utils',
+            'easyocr.utils.imgproc',
+            'easyocr.config',
+            'easyocr.character',
+            'easyocr.dict',
+        ]
+    except Exception as e:
+        print(f"Warning: Could not collect easyocr: {e}")
+    
+    return datas, hiddenimports
+
+# ═══════════════════════════════════════════════════════════
 # 收集所有数据文件
 # ═══════════════════════════════════════════════════════════
 
 datas = []
 binaries = []
+ocr_hiddenimports = []
 
 # 1. 收集 OCR 模型文件（如果存在）
 ocr_models_dir = Path("ocr_models")
@@ -26,6 +105,14 @@ if ocr_models_dir.exists():
             rel_path = file_path.relative_to(Path("."))
             dest_path = rel_path.parent
             datas.append((str(file_path), str(dest_path)))
+
+# 1.5 收集 OCR 引擎的 hook 数据
+paddleocr_datas, paddleocr_hidden = collect_paddleocr()
+easyocr_datas, easyocr_hidden = collect_easyocr()
+datas.extend(paddleocr_datas)
+datas.extend(easyocr_datas)
+ocr_hiddenimports.extend(paddleocr_hidden)
+ocr_hiddenimports.extend(easyocr_hidden)
 
 # 2. 使用 PyInstaller 的 collect_all 收集 paddle 和 paddleocr
 from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules, collect_dynamic_libs
@@ -139,6 +226,9 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=[
+        # OCR 引擎（内联 hook 收集的）
+        *ocr_hiddenimports,
+        
         # 基础依赖
         "pdfplumber",
         "pdf2docx",
@@ -442,7 +532,7 @@ a = Analysis(
         "packaging.specifiers",
         "packaging.requirements",
     ],
-    hookspath=["hooks"] if os.path.exists("hooks") else [],
+    hookspath=[],  # 使用内联 hook，不需要外部 hook 目录
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
