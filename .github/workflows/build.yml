@@ -3,12 +3,16 @@ name: Build Windows EXE with OCR Models
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 90
+
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: 1
 
     steps:
     - name: Checkout code
