@@ -1749,7 +1749,7 @@ class FileFlowApp:
         try:
             self._format_menu.post(x, y)
         except Exception as e:
-            print(f"菜单显示错误: {e}")
+            print(f"[ERROR] Menu display error: {e}")
             self._menu_open = False
             return
         
