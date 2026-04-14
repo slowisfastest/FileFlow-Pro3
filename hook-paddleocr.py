@@ -7,6 +7,9 @@ datas = collect_data_files('paddleocr')
 # Collect all paddleocr submodules
 hiddenimports = collect_submodules('paddleocr')
 
+# Collect binaries (DLLs/SOs)
+binaries = collect_dynamic_libs('paddleocr')
+
 # Additional hidden imports for paddleocr
 hiddenimports += [
     'paddleocr.ppocr',
@@ -61,5 +64,4 @@ hiddenimports += [
     'paddleocr.tools.infer.predict_can',
 ]
 
-# Collect binaries (DLLs)
-binaries = collect_dynamic_libs('paddleocr')
+# Note: binaries already set above via collect_dynamic_libs('paddleocr')

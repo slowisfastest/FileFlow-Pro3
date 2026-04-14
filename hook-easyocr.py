@@ -7,6 +7,9 @@ datas = collect_data_files('easyocr')
 # Collect all easyocr submodules
 hiddenimports = collect_submodules('easyocr')
 
+# Collect binaries (DLLs/SOs)
+binaries = collect_dynamic_libs('easyocr')
+
 # Additional hidden imports for easyocr
 hiddenimports += [
     'easyocr.model',
@@ -26,5 +29,4 @@ hiddenimports += [
     'easyocr.dict',
 ]
 
-# Collect binaries (DLLs)
-binaries = collect_dynamic_libs('easyocr')
+# Note: binaries already set above via collect_dynamic_libs('easyocr')
