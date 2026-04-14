@@ -73,19 +73,36 @@ try:
     print(f"Collected {len(torch_datas)} torch data files")
     print(f"Collected {len(torch_binaries)} torch binaries")
     
-    # 关键修复：手动收集 torch 的 lib 目录中的所有 DLL
+    # Critical: collect ALL files from torch/lib (DLLs, pyd, etc.)
     torch_lib_dir = Path(torch.__file__).parent / 'lib'
     if torch_lib_dir.exists():
-        for dll_file in torch_lib_dir.glob('*.dll'):
-            binaries.append((str(dll_file), 'torch/lib'))
-            print(f"Added torch lib: {dll_file.name}")
+        for f in torch_lib_dir.iterdir():
+            if f.is_file() and (f.suffix in ('.dll', '.pyd', '.so', '.bin')):
+                binaries.append((str(f), 'torch/lib'))
+                print(f"Added torch lib: {f.name}")
     
-    # 关键修复：收集 torch 的 bin 目录（如果有）
+    # Critical: collect ALL files from torch/bin (if exists)
     torch_bin_dir = Path(torch.__file__).parent / 'bin'
     if torch_bin_dir.exists():
-        for dll_file in torch_bin_dir.glob('*.dll'):
-            binaries.append((str(dll_file), 'torch/bin'))
-            print(f"Added torch bin: {dll_file.name}")
+        for f in torch_bin_dir.iterdir():
+            if f.is_file() and (f.suffix in ('.dll', '.pyd', '.so', '.bin', '.exe')):
+                binaries.append((str(f), 'torch/bin'))
+                print(f"Added torch bin: {f.name}")
+    
+    # Critical: collect torch C extensions (.pyd files)
+    torch_dir = Path(torch.__file__).parent
+    for f in torch_dir.iterdir():
+        if f.is_file() and f.suffix == '.pyd':
+            binaries.append((str(f), 'torch'))
+            print(f"Added torch ext: {f.name}")
+    
+    # Critical: torch.distributed and multiprocessing DLLs
+    torch_distributed_dir = torch_dir / 'distributed'
+    if torch_distributed_dir.exists():
+        for f in torch_distributed_dir.iterdir():
+            if f.is_file() and f.suffix in ('.dll', '.pyd'):
+                binaries.append((str(f), 'torch/distributed'))
+                print(f"Added torch/distributed: {f.name}")
 except Exception as e:
     print(f"Warning: Could not collect torch files: {e}")
 
@@ -447,6 +464,21 @@ a = Analysis(
         "torchvision.models",
         "torchvision.ops",
         "torchvision.utils",
+        # PyTorch multiprocessing & shm (critical for DLL loading)
+        "torch.multiprocessing",
+        "torch.multiprocessing.reductions",
+        "torch.multiprocessing.spawn",
+        "torch.distributed",
+        "torch.distributed.elastic",
+        "torch._C",
+        "torch._dl",
+        "torch.cuda",
+        "torch.backends",
+        "torch.backends.cudnn",
+        "torch.backends.mkl",
+        "torch.backends.mkldnn",
+        "torch.storage",
+        "torch.utils.dlpack",
         
         # 其他工具
         "tqdm",
