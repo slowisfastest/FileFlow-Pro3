@@ -494,5 +494,5 @@ exe = EXE(
 
 with open('FileFlowPro.spec', 'w', encoding='utf-8') as f:
     f.write(spec_content)
-print('✅ Spec file created successfully: FileFlowPro.spec')
+print('Spec file created successfully: FileFlowPro.spec')
 print('   Contains full OCR support with PaddleOCR, EasyOCR, and PyTorch')
