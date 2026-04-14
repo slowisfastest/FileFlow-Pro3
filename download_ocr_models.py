@@ -80,36 +80,46 @@ def download_easyocr_models():
     print("下载 EasyOCR 模型")
     print("="*60)
     
-    # EasyOCR 模型仓库
+    # EasyOCR 模型 - 使用官方 GitHub releases
+    # 注意: EasyOCR 首次运行时会自动下载模型到 ~/.EasyOCR/
+    # 这里预下载是为了打包时包含在内
     base_url = "https://github.com/JaidedAI/EasyOCR/releases/download/v1.3"
     
-    models = {
-        "english_g2.zip": "英文识别模型",
-        "zh_sim_g2.zip": "简体中文识别模型",
-    }
+    models = [
+        # (文件名, 描述, 解压后目标目录名)
+        ("english_g2.zip", "英文识别模型", "english_g2"),
+        ("zh_sim_g2.zip", "简体中文识别模型", "zh_sim_g2"),
+    ]
     
     easyocr_dir = MODELS_DIR / "easyocr"
     easyocr_dir.mkdir(parents=True, exist_ok=True)
     
-    for model_file, desc in models.items():
-        url = f"{base_url}/{model_file}"
+    success_count = 0
+    for model_file, desc, model_dir_name in models:
         dest = easyocr_dir / model_file
+        model_dir = easyocr_dir / model_dir_name
         
-        if dest.exists():
+        if model_dir.exists():
             print(f"\n{desc} 已存在，跳过")
+            success_count += 1
             continue
         
-        if download_file(url, dest, desc):
-            # 解压 zip 文件
+        if download_file(f"{base_url}/{model_file}", dest, desc):
             print(f"  解压 {model_file}...")
             try:
                 with zipfile.ZipFile(dest, 'r') as zip_ref:
                     zip_ref.extractall(easyocr_dir)
                 print(f"  ✓ 解压完成")
-                # 删除 zip 文件节省空间
                 dest.unlink()
+                success_count += 1
             except Exception as e:
                 print(f"  ✗ 解压失败: {e}")
+    
+    if success_count == 0:
+        print("\n  注意: EasyOCR 模型预下载失败，首次运行时会自动从网络下载")
+        print(f"  模型将缓存到用户目录: ~/.EasyOCR/")
+        # 创建标记文件，确保目录存在
+        (easyocr_dir / ".download_later").touch()
 
 def create_model_config():
     """创建模型配置文件"""
