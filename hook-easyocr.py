@@ -1,14 +1,8 @@
-# PyInstaller hook for easyocr
-from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules, collect_dynamic_libs
+# PyInstaller hook for easyocr - collect_all returns (datas, binaries, hiddenimports)
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
-# Collect all easyocr data files
-datas = collect_data_files('easyocr')
-
-# Collect all easyocr submodules
-hiddenimports = collect_submodules('easyocr')
-
-# Collect binaries (DLLs/SOs)
-binaries = collect_dynamic_libs('easyocr')
+# collect_all catches data + binaries + submodules including C extensions
+datas, binaries, hiddenimports = collect_all('easyocr')
 
 # Additional hidden imports for easyocr
 hiddenimports += [
@@ -28,5 +22,3 @@ hiddenimports += [
     'easyocr.character',
     'easyocr.dict',
 ]
-
-# Note: binaries already set above via collect_dynamic_libs('easyocr')

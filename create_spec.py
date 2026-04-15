@@ -30,143 +30,173 @@ if ocr_models_dir.exists():
 # 2. 使用 PyInstaller 的 collect_all 收集依赖
 from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules, collect_dynamic_libs
 
-# 收集 paddle - including all submodules
+# 收集 paddle - CRITICAL: must use collect_all + manual .pyd scan
+# paddle.base.core etc are .pyd C extensions that collect_submodules misses
 try:
-    paddle_datas = collect_data_files('paddle')
-    paddle_binaries = collect_dynamic_libs('paddle')
-    paddle_submodules = collect_submodules('paddle')
+    import paddle
+    paddle_dir = Path(paddle.__file__).parent
+
+    # Method 1: collect_all returns (datas, binaries, hiddenimports) tuple
+    paddle_datas, paddle_binaries, paddle_hidden = collect_all('paddle')
     datas.extend(paddle_datas)
     binaries.extend(paddle_binaries)
-    # Will be added to hiddenimports below
-    print(f"Collected {len(paddle_datas)} paddle data files")
-    print(f"Collected {len(paddle_binaries)} paddle binaries")
-    print(f"Found {len(paddle_submodules)} paddle submodules")
-    _paddle_submodules = paddle_submodules
+    _paddle_submodules = paddle_hidden
+    print(f"collect_all('paddle'): +{len(paddle_datas)} data, +{len(paddle_binaries)} binaries, +{len(paddle_hidden)} hidden")
+
+    # Method 2: explicitly walk paddle package and grab ALL .pyd files
+    pyd_count = 0
+    for root, dirs, files in os.walk(paddle_dir):
+        for f in files:
+            if f.endswith('.pyd') or f.endswith('.dll') or f.endswith('.so'):
+                src = os.path.join(root, f)
+                # Relative to paddle package root
+                rel = os.path.relpath(src, paddle_dir)
+                dest_dir = os.path.join('paddle', os.path.dirname(rel))
+                binaries.append((src, dest_dir))
+                pyd_count += 1
+    print(f"Manual paddle .pyd/.dll/.so scan: +{pyd_count} files")
+
+    # Note: collect_all already includes hiddenimports, no need for separate collect_submodules
+
 except Exception as e:
     print(f"Warning: Could not collect paddle files: {e}")
     _paddle_submodules = []
 
-# 收集 paddleocr
+# 收集 paddleocr - CRITICAL: use collect_all + manual .pyd scan
 try:
-    paddleocr_datas = collect_data_files('paddleocr')
-    paddleocr_binaries = collect_dynamic_libs('paddleocr')
+    paddleocr_datas, paddleocr_binaries, paddleocr_hidden = collect_all('paddleocr')
     datas.extend(paddleocr_datas)
     binaries.extend(paddleocr_binaries)
-    print(f"Collected {len(paddleocr_datas)} paddleocr data files")
-    print(f"Collected {len(paddleocr_binaries)} paddleocr binaries")
+
+    # Manual .pyd scan for paddleocr
+    try:
+        import paddleocr as _paddleocr_pkg
+        paddleocr_dir = Path(_paddleocr_pkg.__file__).parent
+        pyd_count = 0
+        for root, dirs, files in os.walk(paddleocr_dir):
+            for f in files:
+                if f.endswith('.pyd') or f.endswith('.dll') or f.endswith('.so'):
+                    src = os.path.join(root, f)
+                    rel = os.path.relpath(src, paddleocr_dir)
+                    dest_dir = os.path.join('paddleocr', os.path.dirname(rel))
+                    binaries.append((src, dest_dir))
+                    pyd_count += 1
+        print(f"Manual paddleocr .pyd/.dll/.so scan: +{pyd_count} files")
+    except Exception as e2:
+        print(f"Note: paddleocr .pyd scan skipped: {e2}")
+
+    print(f"collect_all('paddleocr'): +{len(paddleocr_datas)} data, +{len(paddleocr_binaries)} binaries, +{len(paddleocr_hidden)} hidden")
 except Exception as e:
     print(f"Warning: Could not collect paddleocr files: {e}")
 
-# 收集 easyocr - including all submodules
+# 收集 easyocr - CRITICAL: use collect_all for completeness
 try:
-    easyocr_datas = collect_data_files('easyocr')
-    easyocr_binaries = collect_dynamic_libs('easyocr')
-    easyocr_submodules = collect_submodules('easyocr')
+    easyocr_datas, easyocr_binaries, easyocr_hidden = collect_all('easyocr')
     datas.extend(easyocr_datas)
     binaries.extend(easyocr_binaries)
-    print(f"Collected {len(easyocr_datas)} easyocr data files")
-    print(f"Collected {len(easyocr_binaries)} easyocr binaries")
-    print(f"Found {len(easyocr_submodules)} easyocr submodules")
-    _easyocr_submodules = easyocr_submodules
+    _easyocr_submodules = easyocr_hidden
+
+    # Manual .pyd scan for easyocr
+    try:
+        import easyocr as _easyocr_pkg
+        easyocr_dir = Path(_easyocr_pkg.__file__).parent
+        pyd_count = 0
+        for root, dirs, files in os.walk(easyocr_dir):
+            for f in files:
+                if f.endswith('.pyd') or f.endswith('.dll') or f.endswith('.so'):
+                    src = os.path.join(root, f)
+                    rel = os.path.relpath(src, easyocr_dir)
+                    dest_dir = os.path.join('easyocr', os.path.dirname(rel))
+                    binaries.append((src, dest_dir))
+                    pyd_count += 1
+        print(f"Manual easyocr .pyd/.dll/.so scan: +{pyd_count} files")
+    except Exception as e2:
+        print(f"Note: easyocr .pyd scan skipped: {e2}")
+
+    print(f"collect_all('easyocr'): +{len(easyocr_datas)} data, +{len(easyocr_binaries)} binaries, +{len(easyocr_hidden)} hidden")
 except Exception as e:
     print(f"Warning: Could not collect easyocr files: {e}")
     _easyocr_submodules = []
 
-# 收集 torch - 关键修复：确保所有DLL都被收集
+# 收集 torch - CRITICAL: collect_all + manual lib sweep
 try:
     import torch
-    torch_datas = collect_data_files('torch')
-    torch_binaries = collect_dynamic_libs('torch')
+    torch_dir = Path(torch.__file__).parent
+
+    # collect_all for torch - returns (datas, binaries, hiddenimports)
+    torch_datas, torch_binaries, torch_hidden = collect_all('torch')
     datas.extend(torch_datas)
     binaries.extend(torch_binaries)
-    print(f"Collected {len(torch_datas)} torch data files")
-    print(f"Collected {len(torch_binaries)} torch binaries")
-    
-    # Critical: collect ALL files from torch/lib (DLLs, pyd, etc.)
-    torch_lib_dir = Path(torch.__file__).parent / 'lib'
+    print(f"collect_all('torch'): +{len(torch_datas)} data, +{len(torch_binaries)} binaries, +{len(torch_hidden)} hidden")
+
+    # Manual sweep: torch/lib (DLLs, pyd, etc.)
+    torch_lib_dir = torch_dir / 'lib'
     if torch_lib_dir.exists():
         for f in torch_lib_dir.iterdir():
-            if f.is_file() and (f.suffix in ('.dll', '.pyd', '.so', '.bin')):
+            if f.is_file():
                 binaries.append((str(f), 'torch/lib'))
-                print(f"Added torch lib: {f.name}")
-    
-    # Critical: collect ALL files from torch/bin (if exists)
-    torch_bin_dir = Path(torch.__file__).parent / 'bin'
-    if torch_bin_dir.exists():
-        for f in torch_bin_dir.iterdir():
-            if f.is_file() and (f.suffix in ('.dll', '.pyd', '.so', '.bin', '.exe')):
-                binaries.append((str(f), 'torch/bin'))
-                print(f"Added torch bin: {f.name}")
-    
-    # Critical: collect torch C extensions (.pyd files)
-    torch_dir = Path(torch.__file__).parent
+        print(f"torch/lib: +{len(list(torch_lib_dir.iterdir()))} files")
+
+    # Manual sweep: torch C extension .pyd files in root
     for f in torch_dir.iterdir():
-        if f.is_file() and f.suffix == '.pyd':
+        if f.is_file() and f.suffix in ('.pyd', '.dll', '.so'):
             binaries.append((str(f), 'torch'))
-            print(f"Added torch ext: {f.name}")
-    
-    # Critical: torch.distributed and multiprocessing DLLs
-    torch_distributed_dir = torch_dir / 'distributed'
-    if torch_distributed_dir.exists():
-        for f in torch_distributed_dir.iterdir():
-            if f.is_file() and f.suffix in ('.dll', '.pyd'):
-                binaries.append((str(f), 'torch/distributed'))
-                print(f"Added torch/distributed: {f.name}")
+            print(f"torch root ext: {f.name}")
+
+    # Manual sweep: torch subdirectory .pyd files
+    for sub_dir in ['distributed', 'optim', 'nn', 'utils', 'autograd', 'backends',
+                    'onnx', 'jit', 'cuda', 'sparse', 'viz']:
+        sub = torch_dir / sub_dir
+        if sub.exists():
+            for f in sub.iterdir():
+                if f.is_file() and f.suffix in ('.pyd', '.dll', '.so'):
+                    binaries.append((str(f), f'torch/{sub_dir}'))
+    print(f"torch subdir .pyd scan done")
 except Exception as e:
     print(f"Warning: Could not collect torch files: {e}")
 
-# 收集 torchvision
+# 收集 torchvision - collect_all returns (datas, binaries, hiddenimports)
 try:
-    torchvision_datas = collect_data_files('torchvision')
-    torchvision_binaries = collect_dynamic_libs('torchvision')
-    datas.extend(torchvision_datas)
-    binaries.extend(torchvision_binaries)
-    print(f"Collected {len(torchvision_datas)} torchvision data files")
-    print(f"Collected {len(torchvision_binaries)} torchvision binaries")
+    tv_datas, tv_binaries, tv_hidden = collect_all('torchvision')
+    datas.extend(tv_datas)
+    binaries.extend(tv_binaries)
+    print(f"collect_all('torchvision'): +{len(tv_datas)} data, +{len(tv_binaries)} binaries")
 except Exception as e:
     print(f"Warning: Could not collect torchvision files: {e}")
 
-# 收集 scipy
+# 收集 scipy - collect_all for C extensions (.pyd files)
 try:
-    scipy_datas = collect_data_files('scipy')
-    scipy_binaries = collect_dynamic_libs('scipy')
-    datas.extend(scipy_datas)
-    binaries.extend(scipy_binaries)
-    print(f"Collected {len(scipy_datas)} scipy data files")
-    print(f"Collected {len(scipy_binaries)} scipy binaries")
+    sp_datas, sp_binaries, sp_hidden = collect_all('scipy')
+    datas.extend(sp_datas)
+    binaries.extend(sp_binaries)
+    print(f"collect_all('scipy'): +{len(sp_datas)} data, +{len(sp_binaries)} binaries")
 except Exception as e:
     print(f"Warning: Could not collect scipy files: {e}")
 
-# 收集 skimage
+# 收集 skimage - collect_all for C extensions
 try:
-    skimage_datas = collect_data_files('skimage')
-    skimage_binaries = collect_dynamic_libs('skimage')
-    datas.extend(skimage_datas)
-    binaries.extend(skimage_binaries)
-    print(f"Collected {len(skimage_datas)} skimage data files")
-    print(f"Collected {len(skimage_binaries)} skimage binaries")
+    ski_datas, ski_binaries, ski_hidden = collect_all('skimage')
+    datas.extend(ski_datas)
+    binaries.extend(ski_binaries)
+    print(f"collect_all('skimage'): +{len(ski_datas)} data, +{len(ski_binaries)} binaries")
 except Exception as e:
     print(f"Warning: Could not collect skimage files: {e}")
 
-# 收集 cv2
+# 收集 cv2 (opencv) - collect_all for DLLs
 try:
-    cv2_datas = collect_data_files('cv2')
-    cv2_binaries = collect_dynamic_libs('cv2')
-    datas.extend(cv2_datas)
-    binaries.extend(cv2_binaries)
-    print(f"Collected {len(cv2_datas)} cv2 data files")
-    print(f"Collected {len(cv2_binaries)} cv2 binaries")
+    cv_datas, cv_binaries, cv_hidden = collect_all('cv2')
+    datas.extend(cv_datas)
+    binaries.extend(cv_binaries)
+    print(f"collect_all('cv2'): +{len(cv_datas)} data, +{len(cv_binaries)} binaries")
 except Exception as e:
     print(f"Warning: Could not collect cv2 files: {e}")
 
-# 收集 shapely
+# 收集 shapely - collect_all for C extensions (GEOS DLL)
 try:
-    shapely_datas = collect_data_files('shapely')
-    shapely_binaries = collect_dynamic_libs('shapely')
-    datas.extend(shapely_datas)
-    binaries.extend(shapely_binaries)
-    print(f"Collected {len(shapely_datas)} shapely data files")
-    print(f"Collected {len(shapely_binaries)} shapely binaries")
+    sh_datas, sh_binaries, sh_hidden = collect_all('shapely')
+    datas.extend(sh_datas)
+    binaries.extend(sh_binaries)
+    print(f"collect_all('shapely'): +{len(sh_datas)} data, +{len(sh_binaries)} binaries")
 except Exception as e:
     print(f"Warning: Could not collect shapely files: {e}")
 
@@ -525,7 +555,7 @@ exe = EXE(
     upx=False,                # Disabled: UPX compression can corrupt large DLLs (torch/paddle)
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,          # GUI application, no console window
+    console=True,           # DEBUG: temporarily enable console to capture startup errors
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

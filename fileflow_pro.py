@@ -5,70 +5,110 @@ FileFlow Pro - File Format Conversion Tool
 Apple-style design, supports PDF/Word/Excel/PPT/Image/OFD format conversion
 """
 
+import os
+import sys
+import traceback
+
+# ===========================================================
+# CRITICAL DEBUG: First thing - catch ALL startup failures
+# ===========================================================
+def _pause_on_error(msg="Press Enter to exit..."):
+    """Pause console so user can read error output."""
+    try:
+        if getattr(sys, 'frozen', False):
+            print(f"\n{'='*60}", flush=True)
+            print(msg, flush=True)
+            input()
+    except Exception:
+        pass
+
+if getattr(sys, 'frozen', False):
+    print(f"[DIAG] sys.executable = {sys.executable}", flush=True)
+    print(f"[DIAG] sys._MEIPASS = {getattr(sys, '_MEIPASS', 'N/A')}", flush=True)
+    print(f"[DIAG] Python {sys.version}", flush=True)
+
 # ===========================================================
 # OCR engine imports - wrapped for safety in frozen EXE
-# PyInstaller bundles the modules; these imports may fail at
-# runtime if DLLs are missing, but the app should still start.
 # ===========================================================
 try:
     import paddle
     HAS_PADDLE = True
-except Exception:
+    print(f"[DIAG] paddle OK: {getattr(paddle, '__version__', '?')}", flush=True)
+except Exception as _e:
     HAS_PADDLE = False
+    print(f"[DIAG] paddle FAILED: {_e}", flush=True)
 
 try:
     import paddleocr
     from paddleocr import PaddleOCR
     HAS_PADDLEOCR = True
-except Exception:
+    print(f"[DIAG] paddleocr OK", flush=True)
+except Exception as _e:
     HAS_PADDLEOCR = False
+    print(f"[DIAG] paddleocr FAILED: {_e}", flush=True)
 
 try:
     import easyocr
     HAS_EASYOCR = True
-except Exception:
+    print(f"[DIAG] easyocr OK", flush=True)
+except Exception as _e:
     HAS_EASYOCR = False
+    print(f"[DIAG] easyocr FAILED: {_e}", flush=True)
 
 try:
     import torch
     import torchvision
     HAS_TORCH = True
-except Exception:
+    print(f"[DIAG] torch OK: {getattr(torch, '__version__', '?')}", flush=True)
+except Exception as _e:
     HAS_TORCH = False
+    print(f"[DIAG] torch FAILED: {_e}", flush=True)
 
 try:
     import cv2
     import numpy
     HAS_CV2 = True
-except Exception:
+    print(f"[DIAG] cv2 OK: {getattr(cv2, '__version__', '?')}", flush=True)
+except Exception as _e:
     HAS_CV2 = False
+    print(f"[DIAG] cv2 FAILED: {_e}", flush=True)
 
 try:
     import PIL
     HAS_PIL = True
-except Exception:
+    print(f"[DIAG] PIL OK", flush=True)
+except Exception as _e:
     HAS_PIL = False
+    print(f"[DIAG] PIL FAILED: {_e}", flush=True)
 
 try:
     import scipy
     HAS_SCIPY = True
-except Exception:
+    print(f"[DIAG] scipy OK: {getattr(scipy, '__version__', '?')}", flush=True)
+except Exception as _e:
     HAS_SCIPY = False
+    print(f"[DIAG] scipy FAILED: {_e}", flush=True)
 
 try:
     import skimage
     HAS_SKIMAGE = True
-except Exception:
+    print(f"[DIAG] skimage OK", flush=True)
+except Exception as _e:
     HAS_SKIMAGE = False
+    print(f"[DIAG] skimage FAILED: {_e}", flush=True)
 
 try:
     import shapely
     HAS_SHAPELY = True
-except Exception:
+    print(f"[DIAG] shapely OK", flush=True)
+except Exception as _e:
     HAS_SHAPELY = False
+    print(f"[DIAG] shapely FAILED: {_e}", flush=True)
 
-import os
-import sys
+# Only run diagnostics in frozen EXE mode
+if getattr(sys, 'frozen', False):
+    print(f"[DIAG] All imports done. HAS: P={HAS_PADDLE} PO={HAS_PADDLEOCR} E={HAS_EASYOCR} T={HAS_TORCH} C={HAS_CV2} PIL={HAS_PIL} SP={HAS_SCIPY} SK={HAS_SKIMAGE} SH={HAS_SHAPELY}", flush=True)
+    print("[DIAG] Starting GUI...", flush=True)
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
@@ -2182,16 +2222,20 @@ if __name__ == "__main__":
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
+        temp_dir = os.environ.get('TEMP', os.environ.get('TMP', os.getcwd()))
+        # Always print to console (visible when console=True)
+        print(f"[FATAL] {tb}", file=sys.stderr)
+        sys.stderr.flush()
         try:
-            # Try to show error in a dialog box (GUI mode)
             import tkinter.messagebox as mb
             mb.showerror("FileFlow Pro - Fatal Error", f"{e}\n\n{tb}")
         except Exception:
-            # If even tkinter fails, write to a log file
-            temp_dir = os.environ.get('TEMP', os.environ.get('TMP', os.getcwd()))
             log_path = os.path.join(temp_dir, 'fileflowpro_error.log')
-            with open(log_path, 'w', encoding='utf-8') as f:
-                f.write(f"FileFlow Pro Fatal Error:\n{tb}\n")
-            print(f"Fatal error. Log written to: {log_path}")
-            print(tb)
+            try:
+                with open(log_path, 'w', encoding='utf-8') as f:
+                    f.write(f"FileFlow Pro Fatal Error:\n{tb}\n")
+                print(f"[FATAL] Log written to: {log_path}", file=sys.stderr)
+            except Exception:
+                pass
+        _pause_on_error(f"FATAL ERROR.\nLog: {os.path.join(temp_dir, 'fileflowpro_error.log')}\nPress Enter to exit...")
         sys.exit(1)

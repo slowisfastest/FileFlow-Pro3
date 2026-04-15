@@ -1,14 +1,8 @@
-# PyInstaller hook for paddleocr
-from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules, collect_dynamic_libs
+# PyInstaller hook for paddleocr - collect_all returns (datas, binaries, hiddenimports)
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
-# Collect all paddleocr data files
-datas = collect_data_files('paddleocr')
-
-# Collect all paddleocr submodules
-hiddenimports = collect_submodules('paddleocr')
-
-# Collect binaries (DLLs/SOs)
-binaries = collect_dynamic_libs('paddleocr')
+# collect_all catches data + binaries + submodules including C extensions
+datas, binaries, hiddenimports = collect_all('paddleocr')
 
 # Additional hidden imports for paddleocr
 hiddenimports += [
@@ -63,5 +57,3 @@ hiddenimports += [
     'paddleocr.tools.infer.predict_drrg',
     'paddleocr.tools.infer.predict_can',
 ]
-
-# Note: binaries already set above via collect_dynamic_libs('paddleocr')
