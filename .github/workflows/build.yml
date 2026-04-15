@@ -3,7 +3,7 @@ name: Build Windows EXE with OCR Models
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
   build-windows:
@@ -23,24 +23,24 @@ jobs:
       with:
         python-version: '3.11'
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 1：安装 PyInstaller
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Install PyInstaller
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 2：安装 PyTorch（必须先装，否则 paddle 可能冲突）
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Install PyTorch (CPU)
       run: |
         pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 3：安装 PaddlePaddle（多版本 fallback）
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Install PaddlePaddle (with fallback)
       shell: pwsh
       run: |
@@ -71,10 +71,10 @@ jobs:
 
         python -c "import paddle; print('PaddlePaddle version:', paddle.__version__)"
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 4：安装 PaddleOCR 及其他全部依赖
     # （requirements.txt 中排除 paddlepaddle 避免覆盖）
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Install PaddleOCR and remaining dependencies
       run: |
         pip install paddleocr>=2.7.0
@@ -87,10 +87,11 @@ jobs:
         pip install shapely>=2.0.0 imgaug>=0.4.0 lmdb>=1.4.0
         pip install pyclipper>=1.3.0 pyyaml>=6.0.1 tqdm>=4.66.0 packaging>=23.0
 
-    # ─────────────────────────────────────────────
-    # 步骤 5：验证所有关键依赖（任一失败则中止）
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
+    # Step 5: Verify all key dependencies (stop on any failure)
+    # ---------------------------------------------
     - name: Verify all OCR dependencies
+      shell: pwsh
       run: |
         python -c "import paddle; print('Paddle:', paddle.__version__)"
         python -c "import paddleocr; print('PaddleOCR: OK')"
@@ -105,11 +106,11 @@ jobs:
         python -c "import numpy; print('numpy:', numpy.__version__)"
         python -c "import scipy; print('scipy:', scipy.__version__)"
         python -c "import shapely; print('shapely:', shapely.__version__)"
-        Write-Host "=== 所有关键依赖验证通过 ==="
+        Write-Host "=== All key dependencies verified ==="
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 6：准备 hooks 目录
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Prepare hooks directory
       shell: pwsh
       run: |
@@ -125,9 +126,9 @@ jobs:
           Write-Host "Copied hook-easyocr.py"
         }
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 7：预下载 OCR 模型（失败不阻断打包）
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Pre-download OCR models
       shell: pwsh
       continue-on-error: true
@@ -138,22 +139,22 @@ jobs:
         }
         Write-Host "OCR models ready."
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 8：生成 PyInstaller spec 文件
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Generate PyInstaller spec file
       run: python create_spec.py
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 9：执行打包
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Build EXE with PyInstaller
       run: |
         pyinstaller --clean --noconfirm FileFlowPro.spec
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 10：检查构建产物
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Verify build output
       shell: pwsh
       run: |
@@ -167,9 +168,9 @@ jobs:
           exit 1
         }
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 11：上传构建产物（每次 push 都保存）
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Upload EXE artifact
       uses: actions/upload-artifact@v4
       with:
@@ -177,9 +178,9 @@ jobs:
         path: dist/FileFlowPro.exe
         retention-days: 30
 
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     # 步骤 12：创建 GitHub Release（仅手动触发时）
-    # ─────────────────────────────────────────────
+    # ---------------------------------------------
     - name: Create GitHub Release
       if: github.event_name == 'workflow_dispatch'
       uses: softprops/action-gh-release@v2
