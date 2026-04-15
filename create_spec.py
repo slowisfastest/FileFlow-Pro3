@@ -30,16 +30,21 @@ if ocr_models_dir.exists():
 # 2. 使用 PyInstaller 的 collect_all 收集依赖
 from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules, collect_dynamic_libs
 
-# 收集 paddle
+# 收集 paddle - including all submodules
 try:
     paddle_datas = collect_data_files('paddle')
     paddle_binaries = collect_dynamic_libs('paddle')
+    paddle_submodules = collect_submodules('paddle')
     datas.extend(paddle_datas)
     binaries.extend(paddle_binaries)
+    # Will be added to hiddenimports below
     print(f"Collected {len(paddle_datas)} paddle data files")
     print(f"Collected {len(paddle_binaries)} paddle binaries")
+    print(f"Found {len(paddle_submodules)} paddle submodules")
+    _paddle_submodules = paddle_submodules
 except Exception as e:
     print(f"Warning: Could not collect paddle files: {e}")
+    _paddle_submodules = []
 
 # 收集 paddleocr
 try:
@@ -52,16 +57,20 @@ try:
 except Exception as e:
     print(f"Warning: Could not collect paddleocr files: {e}")
 
-# 收集 easyocr
+# 收集 easyocr - including all submodules
 try:
     easyocr_datas = collect_data_files('easyocr')
     easyocr_binaries = collect_dynamic_libs('easyocr')
+    easyocr_submodules = collect_submodules('easyocr')
     datas.extend(easyocr_datas)
     binaries.extend(easyocr_binaries)
     print(f"Collected {len(easyocr_datas)} easyocr data files")
     print(f"Collected {len(easyocr_binaries)} easyocr binaries")
+    print(f"Found {len(easyocr_submodules)} easyocr submodules")
+    _easyocr_submodules = easyocr_submodules
 except Exception as e:
     print(f"Warning: Could not collect easyocr files: {e}")
+    _easyocr_submodules = []
 
 # 收集 torch - 关键修复：确保所有DLL都被收集
 try:
@@ -267,6 +276,7 @@ a = Analysis(
         "paddleocr.ppocr.utils.visual",
         "paddleocr.ppocr.utils.save_load",
         "paddleocr.ppocr.utils.stats",
+        "paddleocr.ppocr.postprocess",
         "paddleocr.ppocr.data",
         "paddleocr.ppocr.data.imaug",
         "paddleocr.ppocr.data.imaug.operators",
@@ -488,7 +498,7 @@ a = Analysis(
         "packaging.version",
         "packaging.specifiers",
         "packaging.requirements",
-    ],
+    ] + _paddle_submodules + _easyocr_submodules,
     hookspath=["hooks"] if os.path.exists("hooks") else [],
     hooksconfig={},
     runtime_hooks=[],
@@ -512,10 +522,10 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,                # Disabled: UPX compression can corrupt large DLLs (torch/paddle)
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,          # GUI app: no console window
+    console=False,          # GUI application, no console window
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

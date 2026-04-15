@@ -6,21 +6,66 @@ Apple-style design, supports PDF/Word/Excel/PPT/Image/OFD format conversion
 """
 
 # ===========================================================
-# PyInstaller forced imports - ensures OCR engines are bundled
-# These imports must be at the top and cannot use try-except
+# OCR engine imports - wrapped for safety in frozen EXE
+# PyInstaller bundles the modules; these imports may fail at
+# runtime if DLLs are missing, but the app should still start.
 # ===========================================================
-import paddle
-import paddleocr
-from paddleocr import PaddleOCR
-import easyocr
-import torch
-import torchvision
-import cv2
-import numpy
-import PIL
-import scipy
-import skimage
-import shapely
+try:
+    import paddle
+    HAS_PADDLE = True
+except Exception:
+    HAS_PADDLE = False
+
+try:
+    import paddleocr
+    from paddleocr import PaddleOCR
+    HAS_PADDLEOCR = True
+except Exception:
+    HAS_PADDLEOCR = False
+
+try:
+    import easyocr
+    HAS_EASYOCR = True
+except Exception:
+    HAS_EASYOCR = False
+
+try:
+    import torch
+    import torchvision
+    HAS_TORCH = True
+except Exception:
+    HAS_TORCH = False
+
+try:
+    import cv2
+    import numpy
+    HAS_CV2 = True
+except Exception:
+    HAS_CV2 = False
+
+try:
+    import PIL
+    HAS_PIL = True
+except Exception:
+    HAS_PIL = False
+
+try:
+    import scipy
+    HAS_SCIPY = True
+except Exception:
+    HAS_SCIPY = False
+
+try:
+    import skimage
+    HAS_SKIMAGE = True
+except Exception:
+    HAS_SKIMAGE = False
+
+try:
+    import shapely
+    HAS_SHAPELY = True
+except Exception:
+    HAS_SHAPELY = False
 
 import os
 import sys
@@ -413,8 +458,11 @@ class ConversionEngine:
                     if log_func:
                         log_func(f"  Tesseract 加载失败: {e}")
             
-            if not ocr_available or ocr_engine is None:
-                raise RuntimeError("未找到可用的 OCR 引擎。请确保已安装 paddleocr 或 easyocr。")
+            if not ocr_available:
+                raise RuntimeError(
+                    "No OCR engine available. Please ensure PaddleOCR or EasyOCR is properly installed.\n"
+                    "Error details will be logged above."
+                )
             
             total_pages = len(doc)
             
@@ -2127,6 +2175,23 @@ class FileFlowApp:
 # ===========================================================
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = FileFlowApp(root)
-    root.mainloop()
+    try:
+        root = tk.Tk()
+        app = FileFlowApp(root)
+        root.mainloop()
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        try:
+            # Try to show error in a dialog box (GUI mode)
+            import tkinter.messagebox as mb
+            mb.showerror("FileFlow Pro - Fatal Error", f"{e}\n\n{tb}")
+        except Exception:
+            # If even tkinter fails, write to a log file
+            temp_dir = os.environ.get('TEMP', os.environ.get('TMP', os.getcwd()))
+            log_path = os.path.join(temp_dir, 'fileflowpro_error.log')
+            with open(log_path, 'w', encoding='utf-8') as f:
+                f.write(f"FileFlow Pro Fatal Error:\n{tb}\n")
+            print(f"Fatal error. Log written to: {log_path}")
+            print(tb)
+        sys.exit(1)
