@@ -4,7 +4,7 @@
 
 set -e
 
-echo "📦 FileFlow Pro 打包中..."
+echo "[PKG] FileFlow Pro 打包中..."
 
 # 安装 PyInstaller
 echo "[1/6] 安装 PyInstaller..."
@@ -12,15 +12,15 @@ pip3 install pyinstaller --quiet
 
 # 安装 PyTorch (CPU 版本)
 echo "[2/6] 安装 PyTorch..."
-pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu --quiet || echo "⚠️ PyTorch 安装失败"
+pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu --quiet || echo "[WARN] PyTorch 安装失败"
 
 # 安装其他依赖
 echo "[3/6] 安装依赖..."
-pip3 install -r requirements.txt --quiet || echo "⚠️ 部分依赖安装失败"
+pip3 install -r requirements.txt --quiet || echo "[WARN] 部分依赖安装失败"
 
 # 下载 OCR 模型
 echo "[4/6] 下载 OCR 模型..."
-python3 download_ocr_models.py || echo "⚠️ OCR 模型下载失败，将使用在线模式"
+python3 download_ocr_models.py || echo "[WARN] OCR 模型下载失败，将使用在线模式"
 
 # 创建 hooks 目录
 echo "[5/6] 准备 hooks..."
@@ -33,17 +33,17 @@ echo "[6/6] 生成打包配置..."
 python3 create_spec.py
 
 # 打包
-echo "🔨 开始打包..."
+echo "[BUILD] 开始打包..."
 pyinstaller --clean --noconfirm FileFlowPro.spec
 
-echo "✅ 打包完成！输出在 dist/FileFlowPro"
+echo "[OK] 打包完成！输出在 dist/FileFlowPro"
 
 # 检查输出
 if [ -f "dist/FileFlowPro" ]; then
     echo ""
-    echo "📋 文件信息:"
+    echo "[INFO] 文件信息:"
     ls -lh dist/FileFlowPro
     echo ""
-    echo "🚀 运行方式:"
+    echo "[RUN] 运行方式:"
     echo "   ./dist/FileFlowPro"
 fi

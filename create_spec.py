@@ -10,9 +10,9 @@ from pathlib import Path
 
 block_cipher = None
 
-# ═══════════════════════════════════════════════════════════
-# 收集所有数据文件
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# Collect all data files
+# ===========================================================
 
 datas = []
 binaries = []
@@ -161,9 +161,9 @@ try:
 except Exception as e:
     print(f"Warning: Could not collect shapely files: {e}")
 
-# ═══════════════════════════════════════════════════════════
-# 分析配置
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# Analysis configuration
+# ===========================================================
 
 a = Analysis(
     ["fileflow_pro.py"],
@@ -515,8 +515,9 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=False,          # GUI app: no console window
     disable_windowed_traceback=False,
+    argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,

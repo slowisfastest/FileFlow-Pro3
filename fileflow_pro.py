@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-FileFlow Pro - 文件格式转换工具
-Apple 风格设计，支持 PDF/Word/Excel/PPT/图片/OFD 等格式互转
+FileFlow Pro - File Format Conversion Tool
+Apple-style design, supports PDF/Word/Excel/PPT/Image/OFD format conversion
 """
 
-# ═══════════════════════════════════════════════════════════
-# PyInstaller 强制导入 - 确保 OCR 引擎被打包
-# 这些导入必须在最前面，且不能用 try-except，否则 PyInstaller 无法分析
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# PyInstaller forced imports - ensures OCR engines are bundled
+# These imports must be at the top and cannot use try-except
+# ===========================================================
 import paddle
 import paddleocr
 from paddleocr import PaddleOCR
@@ -33,9 +34,9 @@ import tempfile
 import traceback
 import platform
 
-# ═══════════════════════════════════════════════════════════
-# 跨平台文件选择器
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# Cross-platform file selector
+# ===========================================================
 
 def select_files_native(title="选择文件", multiple=True, file_types=None):
     """跨平台文件选择器"""
@@ -116,9 +117,9 @@ def select_folder_native(title="选择文件夹", initial_dir=None):
     # Windows 和 Linux 使用 tkinter filedialog
     return filedialog.askdirectory(title=title, initialdir=initial_dir)
 
-# ═══════════════════════════════════════════════════════════
-# 配置与常量
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# Configuration and constants
+# ===========================================================
 
 C = {
     "bg":          "#F5F5F7",
@@ -166,9 +167,9 @@ EXT_MAP = {
     "WebP (.webp)": ".webp",
 }
 
-# ═══════════════════════════════════════════════════════════
-# 转换引擎
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# Conversion engine
+# ===========================================================
 
 class ConversionEngine:
     """核心转换逻辑"""
@@ -302,8 +303,9 @@ class ConversionEngine:
     
     @staticmethod
     def _pdf_to_word_with_ocr(doc, word_doc, dst: str, log_func=None):
-        """使用 OCR 将扫描件 PDF 转换为可编辑 Word"""
+        """Convert scanned PDF to editable Word using OCR"""
         try:
+            import fitz  # ensure fitz is available in this scope
             from PIL import Image
             import io
             import numpy as np
@@ -361,7 +363,7 @@ class ConversionEngine:
                 ocr_available = True
                 ocr_engine = "paddleocr"
                 if log_func:
-                    log_func("  ✓ PaddleOCR 加载成功")
+                    log_func("  [OK] PaddleOCR loaded")
             except Exception as e:
                 if log_func:
                     log_func(f"  PaddleOCR 加载失败: {e}")
@@ -390,7 +392,7 @@ class ConversionEngine:
                     ocr_available = True
                     ocr_engine = "easyocr"
                     if log_func:
-                        log_func("  ✓ EasyOCR 加载成功")
+                        log_func("  [OK] EasyOCR loaded")
                 except Exception as e:
                     if log_func:
                         log_func(f"  EasyOCR 加载失败: {e}")
@@ -406,7 +408,7 @@ class ConversionEngine:
                     ocr_available = True
                     ocr_engine = "tesseract"
                     if log_func:
-                        log_func("  ✓ Tesseract 加载成功")
+                        log_func("  [OK] Tesseract loaded")
                 except Exception as e:
                     if log_func:
                         log_func(f"  Tesseract 加载失败: {e}")
@@ -530,7 +532,7 @@ class ConversionEngine:
             word_doc.save(dst)
             
             if log_func:
-                log_func(f"  ✓ OCR 转换完成，共 {total_pages} 页")
+                log_func(f"  [OK] OCR done, {total_pages} pages total")
             
             return True
             
@@ -1337,7 +1339,8 @@ class ConversionEngine:
                                     topMargin=20*mm, bottomMargin=20*mm)
             story = []
             for line in content.split("\n"):
-                story.append(Paragraph(line.replace("&", "&amp;").replace("<", "&lt;") or " ", body_style))
+                safe_line = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") or " "
+                story.append(Paragraph(safe_line, body_style))
             
             doc.build(story)
             return True
@@ -1488,9 +1491,9 @@ class ConversionEngine:
         return fn(src, dst, log_func)
 
 
-# ═══════════════════════════════════════════════════════════
-# 主应用
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# Main application
+# ===========================================================
 
 class FileFlowApp:
     def __init__(self, root):
@@ -1563,9 +1566,9 @@ class FileFlowApp:
         upload_frame = tk.Frame(parent, bg=C["surface"], padx=20, pady=20)
         upload_frame.pack(fill="x")
         
-        # 上传图标
-        icon = tk.Label(upload_frame, text="⬆️", font=("SF Pro", 40),
-                       bg=C["surface"])
+        # Upload icon (use plain text, no emoji)
+        icon = tk.Label(upload_frame, text="[ + ]", font=("SF Pro", 28, "bold"),
+                       bg=C["surface"], fg=C["blue"])
         icon.pack()
         
         # 提示文字
@@ -1835,9 +1838,9 @@ class FileFlowApp:
                 self.src_files = result
                 self._update_file_list()
                 self._update_format_options()
-                self._log(f"✓ 已选择 {len(self.src_files)} 个文件")
+                self._log(f"[OK] {len(self.src_files)} file(s) selected")
             else:
-                self._log("未选择文件")
+                self._log("No files selected")
                 
         except Exception as e:
             self._log(f"文件选择错误: {e}")
@@ -1875,9 +1878,9 @@ class FileFlowApp:
                 self.src_files = valid_paths
                 self._update_file_list()
                 self._update_format_options()
-                self._log(f"✓ 已选择 {len(self.src_files)} 个文件")
+                self._log(f"[OK] {len(self.src_files)} file(s) selected")
             else:
-                self._log("未找到有效文件")
+                self._log("No valid files found")
             dialog.destroy()
             
         def cancel():
@@ -1946,9 +1949,9 @@ class FileFlowApp:
                 
             if result:
                 self.output_dir.set(result)
-                self._log(f"✓ 保存位置: {result}")
+                self._log(f"[OK] Save location: {result}")
             else:
-                self._log("未选择文件夹")
+                self._log("No folder selected")
                 
         except Exception as e:
             self._log(f"文件夹选择错误: {e}")
@@ -1983,7 +1986,7 @@ class FileFlowApp:
             path = entry.get().strip()
             if path and os.path.isdir(path):
                 self.output_dir.set(path)
-                self._log(f"✓ 保存位置: {path}")
+                self._log(f"[OK] Save location: {path}")
             else:
                 self._log("错误: 无效的文件夹路径")
             dialog.destroy()
@@ -2077,7 +2080,7 @@ class FileFlowApp:
                     # 验证输出文件是否生成
                     if os.path.exists(out_path):
                         file_size = os.path.getsize(out_path)
-                        self._log(f"  ✓ 完成: {out_name} ({file_size} 字节)")
+                        self._log(f"  [OK] Done: {out_name} ({file_size} bytes)")
                         success_count += 1
                     else:
                         raise RuntimeError("转换后未找到输出文件")
@@ -2086,7 +2089,7 @@ class FileFlowApp:
                     error_msg = str(e)
                     import traceback
                     tb_str = traceback.format_exc()
-                    self._log(f"  ✗ 失败: {error_msg}")
+                    self._log(f"  [FAIL] Failed: {error_msg}")
                     # 记录详细错误信息到日志（仅在开发时显示）
                     for line in tb_str.split('\n')[:5]:  # 只显示前5行
                         if line.strip():
@@ -2114,14 +2117,14 @@ class FileFlowApp:
             messagebox.showwarning("部分失败", 
                 f"成功: {success_count} 个\n失败: {len(failed_files)} 个\n\n请查看日志了解详情")
         else:
-            self._log(f"✓ 全部 {success_count} 个文件转换成功！")
+            self._log(f"[OK] All {success_count} file(s) converted successfully!")
             messagebox.showinfo("完成", f"成功转换 {success_count} 个文件！\n\n文件保存在:\n{self.output_dir.get()}")
         self._log(f"=" * 40)
 
 
-# ═══════════════════════════════════════════════════════════
-# 启动
-# ═══════════════════════════════════════════════════════════
+# ===========================================================
+# Entry point
+# ===========================================================
 
 if __name__ == "__main__":
     root = tk.Tk()
